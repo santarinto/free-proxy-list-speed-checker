@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"reflect"
 	"strconv"
-	"strings"
 
 	"free-proxy-list-speed-checker/internal/cache"
+	"free-proxy-list-speed-checker/internal/commands"
 	"free-proxy-list-speed-checker/internal/config"
 )
 
@@ -67,18 +66,7 @@ func main() {
 
 	switch command {
 	case "list":
-		fmt.Println("Available proxy collections:")
-		v := reflect.ValueOf(cfg.ProxyCollectionList)
-		t := v.Type()
-		for i := 0; i < v.NumField(); i++ {
-			field := t.Field(i)
-			tagValue := field.Tag.Get("toml")
-			if tagValue != "" {
-				fmt.Printf("  - %s\n", tagValue)
-			} else {
-				fmt.Printf("  - %s\n", strings.ToLower(field.Name))
-			}
-		}
+		commands.List(cfg)
 
 	case "scan":
 		collection := "socks5"
