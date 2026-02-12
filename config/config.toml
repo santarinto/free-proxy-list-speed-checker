@@ -1,0 +1,8 @@
+app_name = "free-proxy-list-speed-checker"
+source_repo_url = "https://github.com/gfpcom/free-proxy-list"
+
+[proxy_collection_list]
+socks5 = "https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/socks5.txt"
+
+[options]
+cache_dir = "var/cache"

@@ -13,5 +13,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("App name: %s, Source repo URL: %s\n", cfg.AppName, cfg.SourceRepoUrl)
+	fmt.Printf("App name: %s,\nSource repo URL: %s\n", cfg.AppName, cfg.SourceRepoUrl)
 }
