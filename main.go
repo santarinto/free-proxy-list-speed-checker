@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -19,15 +20,27 @@ func main() {
 	configPath := flag.String("config", "config.toml", "Path to config file")
 	flag.Parse()
 
-	if _, err := os.Stat(*configPath); err != nil {
+	const configDir = "config"
+
+	resolvedPath := *configPath
+	if !filepath.IsAbs(resolvedPath) && filepath.Dir(resolvedPath) == "." {
+		resolvedPath = filepath.Join(configDir, resolvedPath)
+	}
+
+	resolvedPath = filepath.Clean(resolvedPath)
+	if abs, err := filepath.Abs(resolvedPath); err == nil {
+		resolvedPath = abs
+	}
+
+	if _, err := os.Stat(resolvedPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			log.Fatalf("Config file %s not found", *configPath)
+			log.Fatalf("Config file %s not found", resolvedPath)
 		}
-		log.Fatal(err)
+		log.Fatalf("Cannot access config file %s: %v", resolvedPath, err)
 	}
 
 	var config Config
-	if _, err := toml.DecodeFile(*configPath, &config); err != nil {
+	if _, err := toml.DecodeFile(resolvedPath, &config); err != nil {
 		fmt.Println(err)
 	}
 
