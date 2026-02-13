@@ -14,6 +14,45 @@ type Cache struct {
 	data map[string]interface{}
 }
 
+func (c *Cache) saveToFile(filename string, data interface{}) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	filepath := filepath.Join(c.Dir, filename)
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to create cache file %s: %w", filename, err)
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("failed to encode cache data to file %s: %w", filename, err)
+	}
+
+	return nil
+}
+
+func (c *Cache) loadFromFile(filename string, target interface{}) error {
+	filePath := filepath.Join(c.Dir, filename)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to open cache file %s: %w", filename, err)
+	}
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	if err := decoder.Decode(target); err != nil {
+		return fmt.Errorf("failed to decode cache data from file %s: %w", filename, err)
+	}
+
+	return nil
+}
+
 func New(cacheDir string) (*Cache, error) {
 	if cacheDir == "" {
 		return nil, fmt.Errorf("cache directory cannot be empty")
