@@ -1,4 +1,3 @@
-``` Shell Script
 # Free Proxy List Speed Checker
 
 A Go application for checking the speed and availability of free proxy servers from [gfpcom/free-proxy-list](https://github.com/gfpcom/free-proxy-list).
@@ -45,7 +44,7 @@ cache_dir = "var/cache"
 
 ## Usage
 
-Run with default configuration:
+Run with the default configuration:
 
 ```bash
 go run main.go
@@ -85,23 +84,3 @@ See the source repository for license information.
 ## Source
 
 Based on proxy lists from [gfpcom/free-proxy-list](https://github.com/gfpcom/free-proxy-list)
-EOF
-```
-``` markdown
-# Free Proxy List Speed Checker
-
-A Go application for checking the speed and availability of free proxy servers from [gfpcom/free-proxy-list](https://github.com/gfpcom/free-proxy-list).
-
-## Features
-
-- **Configuration Management**: Supports TOML configuration files with local override support
-- **Cache System**: Built-in caching mechanism with configurable directory
-- **Proxy Collection**: Fetches proxy lists from various sources (SOCKS5 supported)
-- **Config Patching**: Apply local configuration patches without modifying the main config file
-
-## Installation
-
-```bash
-go get -u free-proxy-list-speed-checker
-```
-```
