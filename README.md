@@ -5,7 +5,7 @@ A Go application for checking the speed and availability of free proxy servers f
 ## Features
 
 - **Configuration Management**: Supports TOML configuration files with local override support
-- **Cache System**: Built-in caching mechanism with configurable directory
+- **Cache System**: Built-in caching mechanism with a configurable directory
 - **Proxy Collection**: Fetches proxy lists from various sources (SOCKS5 supported)
 - **Config Patching**: Apply local configuration patches without modifying the main config file
 
