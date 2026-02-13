@@ -1,5 +1,6 @@
 # Free Proxy List Speed Checker
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/santarinto/free-proxy-list-speed-checker?utm_source=oss&utm_medium=github&utm_campaign=santarinto%2Ffree-proxy-list-speed-checker&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 A Go application for checking the speed and availability of free proxy servers from [gfpcom/free-proxy-list](https://github.com/gfpcom/free-proxy-list).
