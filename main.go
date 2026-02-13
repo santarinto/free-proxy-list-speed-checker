@@ -69,11 +69,7 @@ func main() {
 		commands.List(cfg)
 
 	case "scan":
-		collection := "socks5"
-		if len(os.Args) > 2 {
-			collection = os.Args[2]
-		}
-		fmt.Printf("Scanning collection: %s\n", collection)
+		commands.Scan(cfg)
 
 	case "stats":
 		collection := "socks5"
