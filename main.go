@@ -63,7 +63,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer c.Close()
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Printf("cache close failed: %v", err)
+		}
+	}()
 
 	switch command {
 	case "list":

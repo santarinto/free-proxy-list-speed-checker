@@ -55,12 +55,18 @@ func (c *Cache) loadFromFile(filename string, target interface{}) error {
 }
 
 func (c *Cache) Load() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if err := c.loadFromFile("common.bin", &c.data); err != nil {
+	var loaded map[string]interface{}
+	if err := c.loadFromFile("common.bin", &loaded); err != nil {
 		return fmt.Errorf("failed to load cache: %w", err)
 	}
+
+	if loaded == nil {
+		loaded = make(map[string]interface{})
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.data = loaded
 
 	return nil
 }
