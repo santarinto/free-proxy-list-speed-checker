@@ -63,6 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer c.Close()
 
 	switch command {
 	case "list":

@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/gob"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,8 +19,8 @@ func (c *Cache) saveToFile(filename string, data interface{}) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	filepath := filepath.Join(c.Dir, filename)
-	file, err := os.Create(filepath)
+	path := filepath.Join(c.Dir, filename)
+	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create cache file %s: %w", filename, err)
 	}
@@ -51,6 +52,26 @@ func (c *Cache) loadFromFile(filename string, target interface{}) error {
 	}
 
 	return nil
+}
+
+func (c *Cache) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.loadFromFile("common.bin", &c.data); err != nil {
+		return fmt.Errorf("failed to load cache: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Cache) Save() error {
+	return c.saveToFile("common.bin", c.data)
+}
+
+func (c *Cache) Close() error {
+	fmt.Println("Saving cache before exit...")
+	return c.Save()
 }
 
 func New(cacheDir string) (*Cache, error) {
@@ -92,6 +113,10 @@ func New(cacheDir string) (*Cache, error) {
 	c := &Cache{
 		Dir:  dir,
 		data: make(map[string]interface{}),
+	}
+
+	if err := c.Load(); err != nil {
+		return nil, fmt.Errorf("failed to load cache: %w", err)
 	}
 
 	return c, nil
