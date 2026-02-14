@@ -16,8 +16,6 @@ type Cache struct {
 }
 
 func (c *Cache) saveToFile(filename string, data interface{}) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	path := filepath.Join(c.Dir, filename)
 	file, err := os.Create(path)
@@ -72,7 +70,10 @@ func (c *Cache) Load() error {
 }
 
 func (c *Cache) Save() error {
-	return c.saveToFile("common.bin", c.data)
+	c.mu.RLock()
+	dataCopy := c.data
+	c.mu.RUnlock()
+	return c.saveToFile("common.bin", dataCopy)
 }
 
 func (c *Cache) Close() error {
