@@ -81,6 +81,50 @@ func (c *Cache) Close() error {
 	return c.Save()
 }
 
+func (c *Cache) Set(key string, value interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.data[key] = value
+}
+
+func (c *Cache) Get(key string) (interface{}, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	val, ok := c.data[key]
+	return val, ok
+}
+
+func (c *Cache) SetList(key string, items []interface{}) error {
+	filename := fmt.Sprintf("%s.list.bin", key)
+	if err := c.saveToFile(filename, items); err != nil {
+		return fmt.Errorf("failed to save list to file: %w", err)
+	}
+
+	c.mu.Lock()
+	c.data[key] = "__LIST__"
+	c.mu.Unlock()
+
+	return nil
+}
+
+func (c *Cache) GetList(key string) ([]interface{}, error) {
+	c.mu.RLock()
+	val, ok := c.data[key]
+	c.mu.RUnlock()
+
+	if !ok || val != "__IS_LIST__" {
+		return nil, fmt.Errorf("list with key %s not found in cache", key)
+	}
+
+	var items []interface{}
+	filename := fmt.Sprintf("%s.list.bin", key)
+	if err := c.loadFromFile(filename, &items); err != nil {
+		return nil, fmt.Errorf("failed to load list from file: %w", err)
+	}
+
+	return items, nil
+}
+
 func New(cacheDir string) (*Cache, error) {
 	if cacheDir == "" {
 		return nil, fmt.Errorf("cache directory cannot be empty")
