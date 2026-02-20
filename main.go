@@ -69,6 +69,19 @@ func run() int {
 		log.Print(err)
 		return 1
 	}
+
+	// Handle clear command separately - no cache saving needed
+	if command == "clear" {
+		fmt.Println("Clearing cache...")
+		if err := c.Clear(); err != nil {
+			log.Printf("failed to clear cache: %v", err)
+			return 1
+		}
+		fmt.Println("Cache cleared successfully")
+		return 0
+	}
+
+	// For all other commands, save cache on exit
 	defer func() {
 		if err := c.Close(); err != nil {
 			log.Printf("cache close failed: %v", err)
@@ -101,9 +114,6 @@ func run() int {
 			}
 		}
 		fmt.Printf("Getting %d fastest proxy(s) from collection: %s\n", number, collection)
-
-	case "clear":
-		fmt.Println("Clearing cache...")
 
 	default:
 		fmt.Printf("Unknown command: %s\n\n", command)
