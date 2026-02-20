@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -13,7 +14,11 @@ func TestCacheBasics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer c.Close()
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Errorf("cache.Close: %v", err)
+		}
+	})
 
 	// Test Set/Get Scalar with map
 	testData := map[string]interface{}{
@@ -91,7 +96,11 @@ func TestCachePersistence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to reopen cache: %v", err)
 		}
-		defer c.Close()
+		t.Cleanup(func() {
+			if err := c.Close(); err != nil {
+				t.Errorf("cache.Close: %v", err)
+			}
+		})
 
 		value, exists, err := c.Get("persist-key")
 		if err != nil {
@@ -113,5 +122,46 @@ func TestCachePersistence(t *testing.T) {
 		if got["time"] != persistData["time"] {
 			t.Errorf("Expected time=%v, got %v", persistData["time"], got["time"])
 		}
+	}
+}
+
+func TestCacheErrorPaths(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	c, err := New(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to create cache: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Errorf("cache.Close: %v", err)
+		}
+	})
+
+	// Get on non-existent key returns (nil, false, nil)
+	value, exists, err := c.Get("missing-key")
+	if err != nil {
+		t.Fatalf("Get on missing key should not error, got: %v", err)
+	}
+	if exists {
+		t.Fatal("Get on missing key: exists should be false")
+	}
+	if value != nil {
+		t.Fatal("Get on missing key: value should be nil")
+	}
+
+	// GetList on non-existent key returns ErrNotFound
+	_, err = c.GetList("missing-list")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("GetList on missing key: expected ErrNotFound, got %v", err)
+	}
+
+	// Type mismatch: set scalar, then try GetList
+	if err := c.Set("scalar-key", map[string]interface{}{"x": 1}); err != nil {
+		t.Fatalf("Failed to set scalar: %v", err)
+	}
+	_, err = c.GetList("scalar-key")
+	if err == nil {
+		t.Fatal("GetList on scalar key: expected error, got nil")
 	}
 }

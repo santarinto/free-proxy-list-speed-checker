@@ -164,6 +164,12 @@ func (c *Cache) scanDirectory() error {
 		delete(c.rootIndex.Entries, key)
 	}
 
+	if len(keysToRemove) > 0 {
+		if err := c.saveRootIndex(); err != nil {
+			log.Printf("warning: failed to persist cleaned root index: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -201,9 +207,13 @@ func (c *Cache) Set(key string, value interface{}) error {
 		return err
 	}
 
+	createdAt := time.Now()
+	if existing, ok := c.rootIndex.Entries[key]; ok {
+		createdAt = existing.CreatedAt
+	}
 	c.rootIndex.Entries[key] = Metadata{
 		Type:      TypeScalar,
-		CreatedAt: time.Now(),
+		CreatedAt: createdAt,
 		UpdatedAt: time.Now(),
 	}
 
@@ -246,9 +256,13 @@ func (c *Cache) SetList(key string, items []interface{}) error {
 		return err
 	}
 
+	createdAt := time.Now()
+	if existing, ok := c.rootIndex.Entries[key]; ok {
+		createdAt = existing.CreatedAt
+	}
 	c.rootIndex.Entries[key] = Metadata{
 		Type:      TypeList,
-		CreatedAt: time.Now(),
+		CreatedAt: createdAt,
 		UpdatedAt: time.Now(),
 	}
 
@@ -269,6 +283,10 @@ func (c *Cache) GetList(key string) ([]interface{}, error) {
 	}
 
 	filePath := c.getFilePath(key)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, key)
+	}
+
 	var items []interface{}
 	if err := c.loadFromFile(filePath, &items); err != nil {
 		return nil, err
@@ -312,14 +330,27 @@ func (c *Cache) GetWeb(url string) ([]byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Double-check: another goroutine may have cached this while we were fetching.
+	if existing, exists := c.rootIndex.Entries[key]; exists && existing.Type == TypeWeb {
+		filePath := c.getFilePath(key)
+		var cached []byte
+		if err := c.loadFromFile(filePath, &cached); err == nil && cached != nil {
+			return cached, nil
+		}
+	}
+
 	filePath := c.getFilePath(key)
 	if err := c.saveToFile(filePath, content); err != nil {
 		return nil, err
 	}
 
+	createdAt := time.Now()
+	if existing, ok := c.rootIndex.Entries[key]; ok {
+		createdAt = existing.CreatedAt
+	}
 	c.rootIndex.Entries[key] = Metadata{
 		Type:      TypeWeb,
-		CreatedAt: time.Now(),
+		CreatedAt: createdAt,
 		UpdatedAt: time.Now(),
 	}
 
@@ -327,7 +358,7 @@ func (c *Cache) GetWeb(url string) ([]byte, error) {
 }
 
 func (c *Cache) Close() error {
-	fmt.Println("Saving root index before exit...")
+	log.Println("Saving root index before exit...")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.saveRootIndex()
