@@ -17,6 +17,15 @@ func init() {
 	gob.Register("")
 	gob.Register([]interface{}{})
 	gob.Register(map[string]interface{}{})
+	gob.Register(0)
+	gob.Register(int64(0))
+	gob.Register(float64(0))
+	gob.Register(false)
+	gob.Register(time.Time{})
+}
+
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
 }
 
 type EntryType string
@@ -58,18 +67,25 @@ func (c *Cache) getRootIndexPath() string {
 }
 
 func (c *Cache) saveToFile(filePath string, data interface{}) error {
-	file, err := os.Create(filePath)
+	tmpPath := filePath + ".tmp"
+	file, err := os.Create(tmpPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", filePath, err)
+		return fmt.Errorf("failed to create temp file %s: %w", tmpPath, err)
 	}
-	defer file.Close()
 
 	encoder := gob.NewEncoder(file)
 	if err := encoder.Encode(data); err != nil {
+		file.Close()
+		os.Remove(tmpPath)
 		return fmt.Errorf("failed to encode data to file %s: %w", filePath, err)
 	}
 
-	return nil
+	if err := file.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temp file %s: %w", tmpPath, err)
+	}
+
+	return os.Rename(tmpPath, filePath)
 }
 
 func (c *Cache) loadFromFile(filePath string, target interface{}) error {
@@ -103,20 +119,17 @@ func (c *Cache) scanDirectory() error {
 		}
 	}
 
+	expectedFiles := make(map[string]bool, len(c.rootIndex.Entries))
+	for key := range c.rootIndex.Entries {
+		expectedFiles[c.hashKey(key)+".bin"] = true
+	}
+
 	for filename := range diskFiles {
 		if filename == "root.index.bin" {
 			continue
 		}
 
-		found := false
-		for key := range c.rootIndex.Entries {
-			if c.hashKey(key)+".bin" == filename {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if !expectedFiles[filename] {
 			fmt.Printf("warning: orphaned cache file found: %s\n", filename)
 		}
 	}
@@ -145,9 +158,7 @@ func (c *Cache) loadRootIndex() error {
 	}
 
 	if err := c.loadFromFile(rootIndexPath, index); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
+		return err
 	}
 
 	c.rootIndex = index
@@ -179,14 +190,14 @@ func (c *Cache) Set(key string, value interface{}) error {
 		UpdatedAt: time.Now(),
 	}
 
-	return nil
+	return c.saveRootIndex()
 }
 
 func (c *Cache) Get(key string) (interface{}, bool, error) {
 	c.mu.RLock()
-	metadata, exists := c.rootIndex.Entries[key]
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
 
+	metadata, exists := c.rootIndex.Entries[key]
 	if !exists {
 		return nil, false, nil
 	}
@@ -224,14 +235,14 @@ func (c *Cache) SetList(key string, items []interface{}) error {
 		UpdatedAt: time.Now(),
 	}
 
-	return nil
+	return c.saveRootIndex()
 }
 
 func (c *Cache) GetList(key string) ([]interface{}, error) {
 	c.mu.RLock()
-	metadata, exists := c.rootIndex.Entries[key]
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
 
+	metadata, exists := c.rootIndex.Entries[key]
 	if !exists {
 		return nil, fmt.Errorf("key %s not found in cache", key)
 	}
@@ -265,7 +276,7 @@ func (c *Cache) GetWeb(url string) ([]byte, error) {
 		return content, nil
 	}
 
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download from %s: %w", url, err)
 	}
@@ -294,13 +305,13 @@ func (c *Cache) GetWeb(url string) ([]byte, error) {
 		UpdatedAt: time.Now(),
 	}
 
-	return content, nil
+	return content, c.saveRootIndex()
 }
 
 func (c *Cache) Close() error {
 	fmt.Println("Saving root index before exit...")
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.saveRootIndex()
 }
 

@@ -22,7 +22,6 @@ func TestCacheBasics(t *testing.T) {
 	// Test Set/Get Scalar with map
 	testData := map[string]interface{}{
 		"name": "test-value",
-		"id":   42,
 	}
 	if err := c.Set("test-key", testData); err != nil {
 		t.Fatalf("Failed to set scalar: %v", err)
@@ -38,6 +37,13 @@ func TestCacheBasics(t *testing.T) {
 	if value == nil {
 		t.Fatal("Value should not be nil")
 	}
+	got, ok := value.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected map[string]interface{}, got %T", value)
+	}
+	if got["name"] != "test-value" {
+		t.Errorf("Expected name=test-value, got %v", got["name"])
+	}
 
 	// Test SetList/GetList
 	items := []interface{}{"item1", "item2", "item3"}
@@ -49,8 +55,13 @@ func TestCacheBasics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get list: %v", err)
 	}
-	if len(retrievedList) != 3 {
-		t.Fatalf("Expected 3 items, got %d", len(retrievedList))
+	if len(retrievedList) != len(items) {
+		t.Fatalf("Expected %d items, got %d", len(items), len(retrievedList))
+	}
+	for i, expected := range items {
+		if retrievedList[i] != expected {
+			t.Errorf("Item %d: expected %v, got %v", i, expected, retrievedList[i])
+		}
 	}
 }
 
@@ -59,16 +70,16 @@ func TestCachePersistence(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "test-cache-persist-"+t.Name())
 	defer os.RemoveAll(tmpDir)
 
+	persistData := map[string]interface{}{
+		"value": "persist-value",
+		"time":  time.Now().Unix(),
+	}
+
 	// Create cache, set data, and close
 	{
 		c, err := New(tmpDir)
 		if err != nil {
 			t.Fatalf("Failed to create cache: %v", err)
-		}
-
-		persistData := map[string]interface{}{
-			"value": "persist-value",
-			"time":  time.Now().Unix(),
 		}
 
 		if err := c.Set("persist-key", persistData); err != nil {
@@ -97,6 +108,16 @@ func TestCachePersistence(t *testing.T) {
 		}
 		if value == nil {
 			t.Fatal("Value should not be nil after reopening")
+		}
+		got, ok := value.(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected map[string]interface{}, got %T", value)
+		}
+		if got["value"] != persistData["value"] {
+			t.Errorf("Expected value=%v, got %v", persistData["value"], got["value"])
+		}
+		if got["time"] != persistData["time"] {
+			t.Errorf("Expected time=%v, got %v", persistData["time"], got["time"])
 		}
 	}
 }
