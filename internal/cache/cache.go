@@ -92,6 +92,12 @@ func (c *Cache) saveToFile(filePath string, data interface{}) error {
 		return fmt.Errorf("failed to encode data to file %s: %w", filePath, err)
 	}
 
+	if err := file.Sync(); err != nil {
+		file.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to sync temp file %s: %w", tmpPath, err)
+	}
+
 	if err := file.Close(); err != nil {
 		os.Remove(tmpPath)
 		return fmt.Errorf("failed to close temp file %s: %w", tmpPath, err)
@@ -142,7 +148,9 @@ func (c *Cache) scanDirectory() error {
 		}
 
 		if strings.HasSuffix(filename, ".tmp") {
-			os.Remove(filepath.Join(c.dir, filename))
+			if err := os.Remove(filepath.Join(c.dir, filename)); err != nil {
+				log.Printf("warning: failed to remove stale tmp file %s: %v", filename, err)
+			}
 			continue
 		}
 
@@ -307,6 +315,9 @@ func (c *Cache) GetWeb(url string) ([]byte, error) {
 		c.mu.RUnlock()
 		if err != nil {
 			return nil, err
+		}
+		if content == nil {
+			return nil, fmt.Errorf("cached data missing for key %s", key)
 		}
 		return content, nil
 	}
