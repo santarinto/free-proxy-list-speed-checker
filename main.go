@@ -47,22 +47,33 @@ func printUsage() {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(0)
+		return 0
 	}
 
 	command := os.Args[1]
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return 1
 	}
 
 	c, err := cache.New(cfg.Options.CacheDir)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return 1
 	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Printf("cache close failed: %v", err)
+		}
+	}()
 
 	switch command {
 	case "list":
@@ -96,8 +107,10 @@ func main() {
 
 	default:
 		fmt.Printf("Unknown command: %s\n\n", command)
-		fmt.Printf("\nCache directory: %s\n", c.Dir)
+		fmt.Printf("\nCache directory: %s\n", c.Dir())
 		printUsage()
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }
