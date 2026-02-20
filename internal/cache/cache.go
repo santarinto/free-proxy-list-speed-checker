@@ -375,6 +375,18 @@ func (c *Cache) Close() error {
 	return c.saveRootIndex()
 }
 
+func (c *Cache) Clear() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := os.RemoveAll(c.dir); err != nil {
+		return fmt.Errorf("failed to remove cache directory: %w", err)
+	}
+
+	log.Printf("Cache directory removed: %s", c.dir)
+	return nil
+}
+
 func New(cacheDir string) (*Cache, error) {
 	if cacheDir == "" {
 		return nil, fmt.Errorf("cache directory cannot be empty")
