@@ -59,26 +59,9 @@ Run with custom configuration file:
 go run main.go -config path/to/config.toml
 ```
 
-## Project Structure
-
-```
-.
-├── config/              # Configuration files
-│   ├── config.toml      # Main configuration
-│   └── config.local.toml # Local overrides (git-ignored)
-├── internal/
-│   ├── cache/           # Cache management
-│   └── config/          # Configuration loading and patching
-├── var/                 # Variable data (cache, etc.)
-├── main.go              # Application entry point
-└── go.mod               # Go module definition
-```
-
 ## Requirements
 
 - Go 1.25 or higher
-- Dependencies:
-    - `github.com/BurntSushi/toml` v1.6.0
 
 ## License
 
