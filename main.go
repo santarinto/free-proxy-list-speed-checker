@@ -107,7 +107,7 @@ func run() int {
 
 	default:
 		fmt.Printf("Unknown command: %s\n\n", command)
-		fmt.Printf("\nCache directory: %s\n", c.Dir)
+		fmt.Printf("\nCache directory: %s\n", c.Dir())
 		printUsage()
 		return 1
 	}

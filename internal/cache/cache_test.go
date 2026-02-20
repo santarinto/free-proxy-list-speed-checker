@@ -1,16 +1,12 @@
 package cache
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestCacheBasics(t *testing.T) {
-	// Create a temporary cache directory
-	tmpDir := filepath.Join(os.TempDir(), "test-cache-"+t.Name())
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create cache instance
 	c, err := New(tmpDir)
@@ -66,9 +62,7 @@ func TestCacheBasics(t *testing.T) {
 }
 
 func TestCachePersistence(t *testing.T) {
-	// Create a temporary cache directory
-	tmpDir := filepath.Join(os.TempDir(), "test-cache-persist-"+t.Name())
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	persistData := map[string]interface{}{
 		"value": "persist-value",

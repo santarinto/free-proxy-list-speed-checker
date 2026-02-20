@@ -4,14 +4,20 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
+
+// ErrNotFound is returned when a requested key does not exist in the cache.
+var ErrNotFound = errors.New("key not found in cache")
 
 func init() {
 	gob.Register("")
@@ -21,6 +27,7 @@ func init() {
 	gob.Register(int64(0))
 	gob.Register(float64(0))
 	gob.Register(false)
+	gob.Register([]byte(nil))
 	gob.Register(time.Time{})
 }
 
@@ -47,9 +54,14 @@ type RootIndex struct {
 }
 
 type Cache struct {
-	Dir       string
+	dir       string
 	mu        sync.RWMutex
 	rootIndex *RootIndex
+}
+
+// Dir returns the cache directory path.
+func (c *Cache) Dir() string {
+	return c.dir
 }
 
 func (c *Cache) hashKey(key string) string {
@@ -59,11 +71,11 @@ func (c *Cache) hashKey(key string) string {
 
 func (c *Cache) getFilePath(key string) string {
 	hashedKey := c.hashKey(key)
-	return filepath.Join(c.Dir, hashedKey+".bin")
+	return filepath.Join(c.dir, hashedKey+".bin")
 }
 
 func (c *Cache) getRootIndexPath() string {
-	return filepath.Join(c.Dir, "root.index.bin")
+	return filepath.Join(c.dir, "root.index.bin")
 }
 
 func (c *Cache) saveToFile(filePath string, data interface{}) error {
@@ -107,7 +119,7 @@ func (c *Cache) loadFromFile(filePath string, target interface{}) error {
 }
 
 func (c *Cache) scanDirectory() error {
-	entries, err := os.ReadDir(c.Dir)
+	entries, err := os.ReadDir(c.dir)
 	if err != nil {
 		return fmt.Errorf("failed to read cache directory: %w", err)
 	}
@@ -129,8 +141,13 @@ func (c *Cache) scanDirectory() error {
 			continue
 		}
 
+		if strings.HasSuffix(filename, ".tmp") {
+			os.Remove(filepath.Join(c.dir, filename))
+			continue
+		}
+
 		if !expectedFiles[filename] {
-			fmt.Printf("warning: orphaned cache file found: %s\n", filename)
+			log.Printf("warning: orphaned cache file found: %s", filename)
 		}
 	}
 
@@ -138,7 +155,7 @@ func (c *Cache) scanDirectory() error {
 	for key := range c.rootIndex.Entries {
 		filePath := c.getFilePath(key)
 		if _, exists := diskFiles[filepath.Base(filePath)]; !exists {
-			fmt.Printf("warning: cache entry %s referenced in index but file not found: %s\n", key, filePath)
+			log.Printf("warning: cache entry %s referenced in index but file not found: %s", key, filePath)
 			keysToRemove = append(keysToRemove, key)
 		}
 	}
@@ -244,7 +261,7 @@ func (c *Cache) GetList(key string) ([]interface{}, error) {
 
 	metadata, exists := c.rootIndex.Entries[key]
 	if !exists {
-		return nil, fmt.Errorf("key %s not found in cache", key)
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, key)
 	}
 
 	if metadata.Type != TypeList {
@@ -265,16 +282,17 @@ func (c *Cache) GetWeb(url string) ([]byte, error) {
 
 	c.mu.RLock()
 	metadata, exists := c.rootIndex.Entries[key]
-	c.mu.RUnlock()
-
 	if exists && metadata.Type == TypeWeb {
 		filePath := c.getFilePath(key)
 		var content []byte
-		if err := c.loadFromFile(filePath, &content); err != nil {
+		err := c.loadFromFile(filePath, &content)
+		c.mu.RUnlock()
+		if err != nil {
 			return nil, err
 		}
 		return content, nil
 	}
+	c.mu.RUnlock()
 
 	resp, err := httpClient.Get(url)
 	if err != nil {
@@ -340,19 +358,11 @@ func New(cacheDir string) (*Cache, error) {
 			return nil, fmt.Errorf("failed to create cache directory: %w", err)
 		}
 
-		info, err := os.Stat(abs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to stat cache directory: %w", err)
-		}
-
-		if !info.IsDir() {
-			return nil, fmt.Errorf("cache directory %s is not a directory", abs)
-		}
 		dir = abs
 	}
 
 	c := &Cache{
-		Dir: dir,
+		dir: dir,
 	}
 
 	if err := c.loadRootIndex(); err != nil {
